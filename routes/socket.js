@@ -5,7 +5,7 @@ var unassignedSockets = [];
 var quizmaster = [];
 var schools = [];
 
-module.exports = function (socket, s2) {
+module.exports = function (socket) {
   
   console.log("connection from")
   console.log(socket.id);
@@ -13,6 +13,15 @@ module.exports = function (socket, s2) {
     unassignedSockets.push(socket.id);    
   }
 
+  socket.on('draw:progress', function (data, start, coordinates) {    
+    data.artist = socket.id;
+    socket.broadcast.emit('draw:progress', data)
+  });
+
+  socket.on('draw:end', function (data) {    
+    data.artist = socket.id;
+    socket.broadcast.emit('draw:end', data)
+  }); 
 
   socket.on('identify', function(data, s3){
     console.log(socket.id)
