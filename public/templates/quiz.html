@@ -16,7 +16,6 @@
     <div class="btn-group-vertical">
       <button class="btn btn-primary" ng-click="selectQuestion()">Select Question</button>
       <button class="btn btn-danger " ng-disabled="activeQuestion.used" ng-click="sendQuestion()">Send question</button>
-      <button class="btn btn-danger "  ng-click="_addSchool()">ADD SCHOOL</button>
     </div>
   </div>
   <div class="col-md-10">
@@ -29,9 +28,10 @@
 
 <div class="row">
   <div class="col-md-4" ng-repeat="school in schools">
-    <p class="text-center">{{school.schoolName}}</p>
-    <img class="img-responsive text-center " ng-src="{{school.currentAnswer.src}}">
-    <div class="btn-group btn-group-justified">
+    <p >{{school.schoolName}}</p>
+<!--     <img class="img-responsive text-center " ng-src="{{school.currentAnswer.src}}"> -->
+    <canvas id="canvas{{school.schoolId}}" height="300" width="400" style="border: 2px solid rgb(67, 0, 0); width:400px; height:300px; "></canvas>
+    <div class="btn-group">
       <a ng-disabled="school.currentAnswer.judged" class="btn btn-success btn-sm" ng-click='school.acceptAnswer()'>
         Accept
       </a>

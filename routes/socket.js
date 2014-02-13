@@ -23,20 +23,24 @@ module.exports = function (socket) {
     socket.broadcast.emit('draw:end', data)
   }); 
 
-  socket.on('identify', function(data, s3){
+  socket.on('identify', function(data){
     console.log(socket.id)
-    console.log(data, s3)
+    console.log(data)
     if (data.identity == "quizmaster"){
       quizmaster.push({
         id: socket.id
       })
     };
+    if (data.identity == "school"){
+      data.schoolId = socket.id;
+      socket.broadcast.emit("new-school", data);
+    }
     unassignedSockets = unassignedSockets.filter(function(a){return a!= socket.id});
   })
 
   socket.on('join', function(data){
     console.log(data);
-    socket.emit('new-school',data)
+    
   })
 
   socket.on('question', function(data){

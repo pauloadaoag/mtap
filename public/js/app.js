@@ -3,9 +3,7 @@ app = angular.module('mtap-quizmaster', ['ngRoute'])
 app.factory('socket', function ($rootScope) {
   var socket = io.connect();
 
-  socket.on('connect', function(){
-    socket.emit('identify', {"identity":"quizmaster"})
-  })
+
   return {
     socket: socket,
     on: function (eventName, callback) {
@@ -62,7 +60,9 @@ app.config(['$routeProvider',
 
 app.controller('drawCtrl', function ($scope, $http, $routeParams, socket){
   paper.install(window);
-
+  socket.on('connect', function(){
+    socket.emit('identify', {"identity":"school", "schoolName":"Philippine Science"})
+  })
   paper.setup('myCanvas');
     // Create a simple drawing tool:
   var tool = new Tool();
@@ -112,71 +112,22 @@ app.controller('drawCtrl', function ($scope, $http, $routeParams, socket){
     var uid = socket.socket.sessionid;
     socket.emit('draw:end', dataToEmit); 
   }
-
-
-  socket.on('draw:progress', function(data){
-    var artist = data.artist;
-    var uid = socket.socket.sessionid;
-    if(true){   
-      var thispath = external_paths[artist];
-      if( !thispath ){
-        external_paths[artist] = new paper.Path();
-        thispath = external_paths[artist];
-        thispath.fillColor = 'black';
-        var thisstart = new Point(data.start.start[1], data.start.start[2]);
-        thispath.add(thisstart);
-      }
-      else{
-        var thistop = new Point(data.dataToEmit.top[1], data.dataToEmit.top[2]);
-        var thisbottom = new Point(data.dataToEmit.bottom[1], data.dataToEmit.bottom[2]);
-        thispath.add(thistop);
-        thispath.insert(0, thisbottom);
-        thispath.smooth();
-      }
-    }
-  })
-
-
-  socket.on('draw:end', function(data){
-    var artist = data.artist;
-    var uid = socket.socket.sessionid;
-    console.log("end");
-    console.log(data);
-    if(true){
-      var thispath = external_paths[artist];
-      console.log(thispath)
-      if( thispath ){
-        var thisend = new Point(data.end[1], data.end[2]);
-        thispath.add(thisend);
-        thispath.closed = false;
-        thispath.smooth();
-        var path = new paper.Path();
-        for (var i = 0; i < thispath._segments.length; i++){
-          path.add(thispath._segments[i])
-        }
-        path.strokeColor = 'black';
-        paper.view.draw();
-        external_paths[artist] = false;
-      }
-    }
-  });
-
-
-
 })  
 
 app.controller('quizCtrl', function ($scope, $http, $routeParams, socket){
   var quizId = $routeParams.quizId;
-  
-  $scope.schools = [{
-      schoolName : 'Grace Christian High School'
-    , schoolId   : 1
-    , currentAnswer: {
-          src: 'http://placedog.com/400/300'
-        , judged : true
-    }
-  }];    
+  socket.on('connect', function(){
+    socket.emit('identify', {"identity":"quizmaster"})
+  })
+  $scope.schools = [];
 
+  var external_paths = {};
+  var start = {};
+  var path = {};
+  socket.on('new-school', function(data){
+    console.log("new school joined")
+    addSchool(data);
+  })
 
   socket.on('answer', function(data){
     $scope.schools = $scope.schools.map(function(school){
@@ -190,15 +141,91 @@ app.controller('quizCtrl', function ($scope, $http, $routeParams, socket){
   })
 
 
+  socket.on('draw:progress', function(data){
+    var artist = data.artist;
+    var uid = socket.socket.sessionid;
+    var school = {};
+    for (var i = 0; i < $scope.schools.length; i++){
+      if ($scope.schools[i].schoolId == artist){
+        school = $scope.schools[i];
+        break;
+      }
+    }
+      
+    var thispath = external_paths[artist];
+    if(school.path == null){
+      school.createPath(data);
+    }
+    else{
+      school.updatePath(data);
+      
+    }
+  
+  })
+
+
+  socket.on('draw:end', function(data){
+    var artist = data.artist;
+    var uid = socket.socket.sessionid;
+    var school = {};
+    for (var i = 0; i < $scope.schools.length; i++){
+      if ($scope.schools[i].schoolId == artist){
+        school = $scope.schools[i];
+        break;
+      }
+    }
+    school.endPath(data);
+  });
 
   var toggleQuestionsModal = function(){
     $("#questionsModal").modal('toggle');
   }
 
   var addSchool = function(data){
+    data.paper = new paper.PaperScope();
+    data.path = null;
+    data.canvasCreated = false;
+    data.updatePath = function(data){
+      var thistop = new this.paper.Point(data.dataToEmit.top[1]/2, data.dataToEmit.top[2]/2);
+      var thisbottom = new this.paper.Point(data.dataToEmit.bottom[1]/2, data.dataToEmit.bottom[2]/2);
+      this.path.add(thistop);
+      this.path.insert(0, thisbottom);
+      this.path.smooth();
+    };
+    data.endPath = function(data){
+      if( this.path ){
+        console.log(data)
+        var thisend = new this.paper.Point((data.end[1])/2, (data.end[2])/2);
+        console.log(thisend)
+        this.path.add(thisend);
+        this.path.closed = false;
+        this.path.smooth();
+        var _path = new this.paper.Path();
+        for (var i = 0; i < this.path._segments.length; i++){
+          _path.add(this.path._segments[i])
+        }
+        _path.strokeColor = 'black';
+        //_path.scale(0.5, _path.bounds.topLeft);
+        paper.view.draw();
+        this.path = null;
+      }
+    }
+    data.createPath = function(data){
+      if (!this.canvasCreated) { this.paper.setup('canvas'+this.schoolId); this.canvasCreated = true; }
+      this.path = new this.paper.Path();
+      this.path.fillColor = 'black';
+      var thisstart = new this.paper.Point(data.start.start[1]/2, data.start.start[2]/2);
+      this.path.add(thisstart);
+    }
+    data.drawData = function(path){
+      var _path = new this.paper.Path();
+      for (var i = 0; i < path._segments.length; i++){
+        _path.add(path._segments[i])
+      }
+      this.paper.view.draw();
+    };
     data.currentAnswer = {
-          src: 'http://placedog.com/400/300'
-        , judged: true
+      judged: true
     };
     data.acceptAnswer = function(){
       this.currentAnswer.judged = true;
@@ -207,13 +234,6 @@ app.controller('quizCtrl', function ($scope, $http, $routeParams, socket){
       this.currentAnswer.judged = true;
     }
     $scope.schools.push(data);
-  }
-
-  $scope._addSchool = function(){
-    addSchool({
-        "schoolId"  : $scope.schools.length + 1
-      , "schoolName":"Pasig Catholic College"
-    })
   }
 
   $scope.sendQuestion = function(){
@@ -243,7 +263,6 @@ app.controller('quizCtrl', function ($scope, $http, $routeParams, socket){
   $http.get('/api/quiz/'+quizId)
   .success(function(data){
     var that = this;
-    console.log(data)
     $scope.inviteCode = data.inviteCode;
     $scope.quizName = data.quizName;
     $scope.quiz = data.quizCategories.map(function(category){
@@ -259,7 +278,7 @@ app.controller('quizCtrl', function ($scope, $http, $routeParams, socket){
     });
 
   });
-   
+
 ;});
 
 app.controller('createCtrl', function ($scope, $http, socket){
