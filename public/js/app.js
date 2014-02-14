@@ -263,9 +263,19 @@ app.controller('quizCtrl', function ($scope, $http, $routeParams, socket){
     data.acceptAnswer = function(){      
       this.points += $scope.activeQuestion.points;
       this.currentAnswer.judged = true;
+      socket.emit('new-result',{
+          school: this.schoolId
+        , correct: true
+        , score: this.points
+      })
     };
     data.rejectAnswer = function(){
       this.currentAnswer.judged = true;
+      socket.emit('new-result',{
+          school: this.schoolId
+        , correct: false
+        , score: this.points
+      })
     }
     $scope.schools.push(data);
     console.log($scope.schools);
@@ -297,6 +307,7 @@ app.controller('quizCtrl', function ($scope, $http, $routeParams, socket){
     $scope.allowJudging();
     $scope.clearCanvases();
   }
+
 
   var decrementTimer = function(){
 

@@ -22,6 +22,12 @@ module.exports = function (socket) {
     socket.broadcast.emit('draw:progress', data)
   });
 
+  socket.on('new-result', function(data){
+    console.log("newres");
+    console.log(data);
+    socket.broadcast.emit('new-result', data);
+  })
+
   socket.on('clear', function(data){
     data.schoolId = socket.id;
     socket.broadcast.emit('clear', data);
