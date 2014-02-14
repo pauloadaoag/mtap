@@ -116,7 +116,7 @@ app.controller('drawCtrl', function ($scope, $http, $routeParams, socket){
 
 app.controller('quizCtrl', function ($scope, $http, $routeParams, socket){
   var quizId = $routeParams.quizId;
-  
+
   socket.on('connect', function(){
     socket.emit('identify', {"identity":"quizmaster"})
   })
@@ -158,7 +158,7 @@ app.controller('quizCtrl', function ($scope, $http, $routeParams, socket){
 
 
   socket.on('draw:progress', function(data){
-    //if (!$scope.allowEntry) return;
+    if (!$scope.allowEntry) return;
     var artist = data.artist;
     var uid = socket.socket.sessionid;
     
@@ -171,7 +171,7 @@ app.controller('quizCtrl', function ($scope, $http, $routeParams, socket){
     }
       
     if (!school) return;
-    if(school.path == null){
+    if(school.path.length == 0){
       school.createPath(data);
       //school.updatePath(data);
     }
@@ -183,7 +183,7 @@ app.controller('quizCtrl', function ($scope, $http, $routeParams, socket){
 
 
   socket.on('draw:end', function(data){
-    //if (!$scope.allowEntry) return;
+    if (!$scope.allowEntry) return;
     var artist = data.artist;
     var uid = socket.socket.sessionid;
     var school = {};
@@ -202,48 +202,52 @@ app.controller('quizCtrl', function ($scope, $http, $routeParams, socket){
 
   var addSchool = function(data){
     data.paper = new paper.PaperScope();
-    data.path = null;
+    data.path = [];
     data.canvasCreated = false;
     data.points = 0;
+
     data.updatePath = function(data){
-      console.log(this.schoolId)
-      var thistop = new this.paper.Point(data.dataToEmit.top[1]/2, data.dataToEmit.top[2]/2);
-      var thisbottom = new this.paper.Point(data.dataToEmit.bottom[1]/2, data.dataToEmit.bottom[2]/2);
-      if (this.path == null);
-      this.path.add(thistop);
-      this.path.insert(0, thisbottom);
-      this.path.smooth();
+      var thistop = {x: data.dataToEmit.top[1]/2, y: data.dataToEmit.top[2]/2};
+      var x = this.path.length - 1;
+      (this.path[x]).push(thistop);
     };
     data.clearSlate = function(){
      this.paper.setup('canvas'+this.schoolId); 
      this.canvasCreated = true; 
+     this.path = [];
     }
     data.endPath = function(data){
-      console.log("end " + this.schoolId);
-      if( this.path ){
+      this.paper = new paper.PaperScope();
+      this.paper.setup('canvas'+this.schoolId); 
+
+      if( this.path.length > 0 ){
         if (data){
-          var thisend = new this.paper.Point((data.end[1])/2, (data.end[2])/2);
-          this.path.add(thisend);  
+          var thisend = {x: (data.end[1])/2, y: (data.end[2])/2};
+          this.path[this.path.length-1].push(thisend);  
         }
+        for (var j = 0; j < this.path.length; j++){
+          var _path = new this.paper.Path();
+          for (var i = 0; i < this.path[j].length; i++){
+            var pt = new this.paper.Point(this.path[j][i]);
+            _path.add(pt)
+          }
+          _path.strokeColor = 'black';
+          paper.view.draw();
+        }
+        var emptyArray = [];
+        this.path.push(emptyArray);
         
-        this.path.closed = false;
-        this.path.smooth();
-        var _path = new this.paper.Path();
-        for (var i = 0; i < this.path._segments.length; i++){
-          _path.add(this.path._segments[i])
-        }
-        _path.strokeColor = 'black';
-        //_path.scale(0.5, _path.bounds.topLeft);
-        paper.view.draw();
-        this.path = null;
       }
     }
     data.createPath = function(data){
-      if (!this.canvasCreated) { this.paper.setup('canvas'+this.schoolId); this.canvasCreated = true; }
-      this.path = new this.paper.Path();
-      this.path.fillColor = 'black';
-      var thisstart = new this.paper.Point(data.start.start[1]/2, data.start.start[2]/2);
-      this.path.add(thisstart);
+      this.canvasCreated = true;
+      this.path = [];
+      var p = [];
+      var thisstart = {x: data.start.start[1]/2, y : data.start.start[2]/2};
+      p.push(thisstart);
+      this.path.push(p);
+      console.log("created path");
+      console.log(this.path)
 
     }
     data.drawData = function(path){
@@ -289,7 +293,7 @@ app.controller('quizCtrl', function ($scope, $http, $routeParams, socket){
     
     socket.emit('startTimer');
     $scope.allowEntry = true;
-    //setTimeout(decrementTimer, 1000);
+    setTimeout(decrementTimer, 1000);
     $scope.allowJudging();
     $scope.clearCanvases();
   }
