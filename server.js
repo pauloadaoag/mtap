@@ -8,6 +8,9 @@ var routes = require('./routes');
 var user = require('./routes/user');
 var http = require('http');
 var path = require('path');
+var mongoose = require('mongoose')
+mongoose.connect("mongodb://localhost:27017/mtap");
+var quiz = require('./models/quiz.js');
 
 var app = express();
 
@@ -25,13 +28,38 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // development only
 if ('development' == app.get('env')) {
-  app.use(express.errorHandler());
+  app.use(express.errorHandler()); 
 }
+
+app.get('/mapi/quiz', function(req, res){
+  quiz.QUIZ.find({}).exec(function(err, quizzes){
+    if (err) req.status(400).send(err);
+    else res.send(quizzes);
+  })
+})
+
+app.get('/mapi/quiz/:quizId', function(req, res){
+  quiz.QUIZ.findOne({"_id":req.params.quizId}).exec(function(err, result){
+    if (err) req.status(400).send(err);
+    else res.send(result);
+  })
+})
+
+app.post('/mapi/quiz/', function(req, res){
+
+  var q = new quiz.QUIZ(req.body.obj);
+  q.save(function(err, result){
+    if (err) res.status(400).send(err);
+    else res.send(result);
+  });
+})
+
 
 app.post('*', function (req, res) {
   console.log(JSON.stringify(req.body))
   res.redirect(req.url);
 });
+
 
 // app.get('/', routes.index);
 // app.get('/users', user.list);

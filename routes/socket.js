@@ -11,12 +11,21 @@ module.exports = function (socket) {
   console.log(socket.id);
   if (unassignedSockets.indexOf(socket.id) == -1){
     unassignedSockets.push(socket.id);    
-  }
+  };
+
+  socket.on('startTimer', function(data){
+    socket.broadcast.emit('startTimer', data);
+  });
 
   socket.on('draw:progress', function (data, start, coordinates) {    
     data.artist = socket.id;
     socket.broadcast.emit('draw:progress', data)
   });
+
+  socket.on('clear', function(data){
+    data.schoolId = socket.id;
+    socket.broadcast.emit('clear', data);
+  })
 
   socket.on('draw:end', function (data) {    
     data.artist = socket.id;
@@ -24,8 +33,6 @@ module.exports = function (socket) {
   }); 
 
   socket.on('identify', function(data){
-    console.log(socket.id)
-    console.log(data)
     if (data.identity == "quizmaster"){
       quizmaster.push({
         id: socket.id
@@ -39,11 +46,10 @@ module.exports = function (socket) {
   })
 
   socket.on('join', function(data){
-    console.log(data);
     
   })
 
-  socket.on('question', function(data){
+  socket.on('new-question', function(data){
     console.log("NEW QUESTION!!!!!")
     console.log(data);
   });

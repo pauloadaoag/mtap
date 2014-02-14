@@ -16,11 +16,19 @@
     <div class="btn-group-vertical">
       <button class="btn btn-primary" ng-click="selectQuestion()">Select Question</button>
       <button class="btn btn-danger " ng-disabled="activeQuestion.used" ng-click="sendQuestion()">Send question</button>
+      <button class="btn btn-danger " ng-disabled="activeQuestion.used" ng-click="startTimer()">Start Timer</button>
     </div>
   </div>
-  <div class="col-md-10">
+  <div class="col-md-6">
     <p><strong>Question: {{activeQuestion.questionText}}</strong></p>
     Answer: {{activeQuestion.answerText}}
+  </div>
+  <div class="col-md-2">
+    Time: {{activeQuestion.time}} 
+    <br> 
+    Points: {{activeQuestion.points}}
+    <b4>
+    <h3>TIME: <span class="label label-danger">{{timer}}</span></h3>
   </div>
   
 </div>
@@ -28,7 +36,7 @@
 
 <div class="row">
   <div class="col-md-4" ng-repeat="school in schools">
-    <p >{{school.schoolName}}</p>
+    <h4>{{school.schoolName}} - <span class="badge">{{school.points}}</span></h4>
 <!--     <img class="img-responsive text-center " ng-src="{{school.currentAnswer.src}}"> -->
     <canvas id="canvas{{school.schoolId}}" height="300" width="400" style="border: 2px solid rgb(67, 0, 0); width:400px; height:300px; "></canvas>
     <div class="btn-group">

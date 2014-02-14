@@ -116,14 +116,19 @@ app.controller('drawCtrl', function ($scope, $http, $routeParams, socket){
 
 app.controller('quizCtrl', function ($scope, $http, $routeParams, socket){
   var quizId = $routeParams.quizId;
+  
   socket.on('connect', function(){
     socket.emit('identify', {"identity":"quizmaster"})
   })
   $scope.schools = [];
-
+  $scope.timer = 0;
+  $scope.allowEntry = false;
   var external_paths = {};
   var start = {};
   var path = {};
+
+
+
   socket.on('new-school', function(data){
     console.log("new school joined")
     addSchool(data);
@@ -138,12 +143,25 @@ app.controller('quizCtrl', function ($scope, $http, $routeParams, socket){
       return school;
     })
     console.log($scope.schools)
+  });
+
+  socket.on('clear', function(data){
+    var schoolId = data.schoolId;
+    for (var i = 0; i < $scope.schools.length; i++){
+      if ($scope.schools[i].schoolId == artist){
+        school = $scope.schools[i];
+        school.clearSlate();
+        break;
+      }
+    }
   })
 
 
   socket.on('draw:progress', function(data){
+    //if (!$scope.allowEntry) return;
     var artist = data.artist;
     var uid = socket.socket.sessionid;
+    
     var school = {};
     for (var i = 0; i < $scope.schools.length; i++){
       if ($scope.schools[i].schoolId == artist){
@@ -152,19 +170,20 @@ app.controller('quizCtrl', function ($scope, $http, $routeParams, socket){
       }
     }
       
-    var thispath = external_paths[artist];
+    if (!school) return;
     if(school.path == null){
       school.createPath(data);
+      //school.updatePath(data);
     }
     else{
-      school.updatePath(data);
-      
+      school.updatePath(data);      
     }
   
   })
 
 
   socket.on('draw:end', function(data){
+    //if (!$scope.allowEntry) return;
     var artist = data.artist;
     var uid = socket.socket.sessionid;
     var school = {};
@@ -185,19 +204,28 @@ app.controller('quizCtrl', function ($scope, $http, $routeParams, socket){
     data.paper = new paper.PaperScope();
     data.path = null;
     data.canvasCreated = false;
+    data.points = 0;
     data.updatePath = function(data){
+      console.log(this.schoolId)
       var thistop = new this.paper.Point(data.dataToEmit.top[1]/2, data.dataToEmit.top[2]/2);
       var thisbottom = new this.paper.Point(data.dataToEmit.bottom[1]/2, data.dataToEmit.bottom[2]/2);
+      if (this.path == null);
       this.path.add(thistop);
       this.path.insert(0, thisbottom);
       this.path.smooth();
     };
+    data.clearSlate = function(){
+     this.paper.setup('canvas'+this.schoolId); 
+     this.canvasCreated = true; 
+    }
     data.endPath = function(data){
+      console.log("end " + this.schoolId);
       if( this.path ){
-        console.log(data)
-        var thisend = new this.paper.Point((data.end[1])/2, (data.end[2])/2);
-        console.log(thisend)
-        this.path.add(thisend);
+        if (data){
+          var thisend = new this.paper.Point((data.end[1])/2, (data.end[2])/2);
+          this.path.add(thisend);  
+        }
+        
         this.path.closed = false;
         this.path.smooth();
         var _path = new this.paper.Path();
@@ -216,6 +244,7 @@ app.controller('quizCtrl', function ($scope, $http, $routeParams, socket){
       this.path.fillColor = 'black';
       var thisstart = new this.paper.Point(data.start.start[1]/2, data.start.start[2]/2);
       this.path.add(thisstart);
+
     }
     data.drawData = function(path){
       var _path = new this.paper.Path();
@@ -227,29 +256,75 @@ app.controller('quizCtrl', function ($scope, $http, $routeParams, socket){
     data.currentAnswer = {
       judged: true
     };
-    data.acceptAnswer = function(){
+    data.acceptAnswer = function(){      
+      this.points += $scope.activeQuestion.points;
       this.currentAnswer.judged = true;
     };
     data.rejectAnswer = function(){
       this.currentAnswer.judged = true;
     }
     $scope.schools.push(data);
+    console.log($scope.schools);
   }
 
   $scope.sendQuestion = function(){
     $scope.schools = $scope.schools.map(function(school){
-      school.schoolName = "fuckers"
       school.currentAnswer.src = "/img/no-answer.png"
       school.currentAnswer.judged = true;
       return school;
     })
-    console.log($scope.schools)
-    setTimeout(function(){
-      socket.emit('question',$scope.activeQuestion);  
-    }, 2000)
+    var toSend = {
+        questionText: $scope.activeQuestion.questionText
+     ,  points : $scope.activeQuestion.points
+     ,  time   : $scope.activeQuestion.time
+    }
     
+    socket.emit('new-question',toSend);
+    
+  }
+
+  $scope.startTimer = function(){
+    $scope.activeQuestion.used = true;
+    $scope.timer = $scope.activeQuestion.time;
+    
+    socket.emit('startTimer');
+    $scope.allowEntry = true;
+    //setTimeout(decrementTimer, 1000);
+    $scope.allowJudging();
+    $scope.clearCanvases();
+  }
+
+  var decrementTimer = function(){
+
+    if ($scope.timer > 0) {
+      $scope.timer--;
+      $scope.$apply();
+      setTimeout(decrementTimer, 1000);
+    }
+    else{
+      for (var i = 0; i < $scope.schools.length; i++){
+        $scope.schools[i].endPath(null);
+      }
+      $scope.allowEntry = false;
+    }
+  }
+
+  $scope.clearCanvases = function(){
+    for(var i = 0; i < $scope.schools.length; i++){
+      $scope.schools[i].clearSlate();
+    }
+  }
 
 
+  $scope.allowJudging = function(){
+    for(var i = 0; i < $scope.schools.length; i++){
+      $scope.schools[i].currentAnswer.judged = false;
+    }
+  }
+  $scope.disallowJudging = function(){
+    for(var i = 0; i < $scope.schools.length; i++){
+      $scope.schools[i].currentAnswer.judged = true;
+    }
   }
 
   $scope.selectQuestion = function(){
@@ -260,14 +335,20 @@ app.controller('quizCtrl', function ($scope, $http, $routeParams, socket){
     used: true
   };
 
-  $http.get('/api/quiz/'+quizId)
+  $http.get('/mapi/quiz/'+quizId)
   .success(function(data){
     var that = this;
     $scope.inviteCode = data.inviteCode;
     $scope.quizName = data.quizName;
     $scope.quiz = data.quizCategories.map(function(category){
+      var secs = category.categoryTime;
+      var points = category.categoryPoints;
+      var categoryId = category._id;
       category.questions = category.questions.map(function(question){
         question.used = question.used || false;
+        question.points = points;
+        question.time = secs;
+        question.categoryId = categoryId;
         question.select = function(){
           toggleQuestionsModal();
           $scope.activeQuestion = this;
@@ -296,7 +377,7 @@ app.controller('createCtrl', function ($scope, $http, socket){
       , quizCategories : $scope.categories
     }
     console.log(obj);
-    $http.post('/api/quiz/new', obj).success(function(){
+    $http.post('/mapi/quiz/', {"obj":obj}).success(function(){
         alert('Successfully uploaded Quiz')
       }).error(function(){
         alert('Failed to upload Quiz');
@@ -352,3 +433,7 @@ app.controller('indexCtrl', function ($scope, $http){
   
    
 ;});
+
+// window.onbeforeunload = function() {
+//     return 'A quiz is currently ongoing!!!';
+// }
